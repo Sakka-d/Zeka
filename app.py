@@ -82,3 +82,5 @@ if user_input := st.chat_input("Escribe tu pregunta para Zeka aquí..."):
             respuesta_zeka = generar_respuesta_ligera(user_input, contexto_inyectado)
             st.write(respuesta_zeka)
     st.session_state.messages.append({"role": "assistant", "content": respuesta_zeka})
+API_KEY = "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" 
+python3 -m streamlit run app.py
