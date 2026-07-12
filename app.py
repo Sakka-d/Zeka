@@ -78,7 +78,7 @@ if user_input := st.chat_input("Escribe tu pregunta para Zeka aquí..."):
 
     with st.chat_message("assistant"):
         with st.spinner("Zeka está pensando..."):
-            contexto_inyectado = buscar_contexto_web(user_input, st.session_state.conocimiento)
+          contexto_inyectado = "Contexto local activo"
             respuesta_zeka = generar_respuesta_ligera(user_input, contexto_inyectado)
             st.write(respuesta_zeka)
     st.session_state.messages.append({"role": "assistant", "content": respuesta_zeka})
