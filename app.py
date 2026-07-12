@@ -24,9 +24,7 @@ def preguntar_a_groq(pregunta, historial):
     mensajes.append({"role": "user", "content": pregunta})
     
     data = {
-        "model": "llama3-8b-8192",
-        "messages": mensajes,
-        "temperature": 0.7
+        "model": "llama-3.1-8b-instant",
     }
     
     try:
