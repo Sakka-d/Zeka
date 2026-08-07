@@ -1,60 +1,57 @@
 import streamlit as st
 import requests
 
-st.set_page_config(page_title="Zeka 2.0", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="Zeka 3.0", page_icon="🤖", layout="centered")
 
 st.title("🤖 Zeka 2.0")
 st.subheader("Zetta de Explicación Kernel Autónoma")
 st.markdown("---")
 
-# Tu clave de Groq
-API_KEY = "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"
+# Se obtiene la API Key de forma segura desde los Secrets de Streamlit
+API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
-def preguntar_a_groq(pregunta, historial):
+def preguntar_a_groq(historial_completo):
+    if not API_KEY:
+        return "⚠️ Error: No se ha configurado la GROQ_API_KEY en los Secrets de Streamlit."
+        
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json"
     }
     
-    # Construimos el formato de mensajes incluyendo el contexto del historial
-    mensajes = [{"role": "system", "content": "Eres ZEKA, un asistente de IA inteligente, directo y con un toque de personalidad única."}]
-    for msg in historial:
-        mensajes.append({"role": msg["role"], "content": msg["content"]})
-    mensajes.append({"role": "user", "content": pregunta})
+    sistema = [{"role": "system", "content": "Eres ZEKA, un asistente de IA inteligente, directo y muy atento. Recuerdas todo lo que el usuario te dice durante la conversación."}]
+    mensajes_para_enviar = sistema + historial_completo
     
     data = {
         "model": "llama-3.1-8b-instant",
+        "messages": mensajes_para_enviar,
+        "temperature": 0.7
     }
     
     try:
-        respuesta = requests.post(url, headers=headers, json=data, timeout=15)
+        respuesta = requests.post(url, headers=headers, json=data, timeout=10)
         respuesta.raise_for_status()
-        json_res = respuesta.json()
-        return json_res["choices"][0]["message"]["content"]
+        return respuesta.json()["choices"][0]["message"]["content"]
     except Exception as e:
-        return f"Error de conexión con mis circuitos cerebrales: {str(e)}"
+        return f"Error al conectar con la IA: {e}"
 
-# Inicializar historial de chat
 if "messages" not in st.session_state:
-    st.session_state.messages = []
-    st.session_state.messages.append({"role": "assistant", "content": "Soy ZEKA, ¿qué quieres?"})
+    st.session_state.messages = [
+        {"role": "assistant", "content": "¡Hola! Soy ZEKA. ¿En qué te puedo ayudar hoy?"}
+    ]
 
-# Mostrar mensajes anteriores
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
 
-# Entrada del usuario
-if user_input := st.chat_input("Escribe tu pregunta para Zeka aquí..."):
-    # Mostrar mensaje del usuario
+if user_input := st.chat_input("Escribe tu pregunta aquí..."):
+    st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.write(user_input)
-    st.session_state.messages.append({"role": "user", "content": user_input})
 
-    # Generar respuesta de la IA real
     with st.chat_message("assistant"):
-        with st.spinner("Zeka está pensando..."):
-            respuesta_zeka = preguntar_a_groq(user_input, st.session_state.messages[:-1])
-            st.write(respuesta_zeka)
-            st.session_state.messages.append({"role": "assistant", "content": respuesta_zeka})
+        with st.spinner("ZEKA está pensando..."):
+            respuesta = preguntar_a_groq(st.session_state.messages)
+            st.write(respuesta)
+            st.session_state.messages.append({"role": "assistant", "content": respuesta})
