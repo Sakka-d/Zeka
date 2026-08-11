@@ -16,7 +16,7 @@ def buscar_en_web(consulta):
     try:
         results = list(DDGS().text(consulta, max_results=3))
         if not results:
-            return "No se encontraron noticias recientes sobre este tema."
+            return "una de dos: o tu pregunta es muy tonta, o no tengo informacion de ella, tu dime."
         
         texto_busqueda = "\n".join([f"- {r['title']}: {r['body']}" for r in results])
         return texto_busqueda
