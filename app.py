@@ -1,29 +1,43 @@
 import streamlit as st
 import requests
-from duckduckgo_search import DDGS
+import xml.etree.ElementTree as ET
+import urllib.parse
 
-# Configuración inicial de la página
-st.set_page_config(page_title="Zeka 5.1", page_icon="🤖", layout="centered")
+# Configuración inicial
+st.set_page_config(page_title="Zeka 5.0", page_icon="🤖", layout="centered")
 
-st.title("🤖 ZEKA v5.1")
+st.title("🤖 ZEKA v5.0")
 st.subheader("Zetta de Explicación Kernel Autónoma")
 st.markdown("---")
 
 API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
-# Función para buscar en la web en tiempo real
-def buscar_en_web(consulta):
+# Función para buscar NOTICIAS ACTUALES reales en tiempo real
+def buscar_noticias(consulta):
     try:
-        results = list(DDGS().text(consulta, max_results=3))
-        if not results:
-            return "No se encontraron noticias recientes sobre este tema."
+        # Codificar la pregunta para la URL
+        busqueda_encoded = urllib.parse.quote(consulta)
+        url = f"https://news.google.com/rss/search?q={busqueda_encoded}&hl=es-419&gl=CO&ceid=CO:es-419"
         
-        texto_busqueda = "\n".join([f"- {r['title']}: {r['body']}" for r in results])
-        return texto_busqueda
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(url, headers=headers, timeout=5)
+        
+        if response.status_code == 200:
+            root = ET.fromstring(response.content)
+            titulares = []
+            # Tomar los primeros 4 titulares encontrados
+            for item in root.findall(".//item")[:4]:
+                titulo = item.find("title").text if item.find("title") is not None else ""
+                if titulo:
+                    titulares.append(f"- {titulo}")
+            
+            if titulares:
+                return "\n".join(titulares)
+        return ""
     except Exception:
-        return "No se pudo realizar la búsqueda web en este momento."
+        return ""
 
-def preguntar_a_groq(historial_completo, informacion_web=""):
+def preguntar_a_groq(historial_completo, noticias_encontradas=""):
     if not API_KEY:
         return "⚠️ Error: No se ha configurado la GROQ_API_KEY en los Secrets de Streamlit."
         
@@ -33,40 +47,34 @@ def preguntar_a_groq(historial_completo, informacion_web=""):
         "Content-Type": "application/json"
     }
     
-    # Instrucciones de la personalidad, idiomas y uso de la web
     system_instruction = (
         "Eres ZEKA, un asistente virtual extremadamente sarcástico, ingenioso y un poco burlón. "
-        "REGLA OBLIGATORIA DE IDIOMA: Responde SIEMPRE en el mismo idioma en el que te hable el usuario en su último mensaje "
-        "(ejemplo: si te escriben en inglés, respondes en inglés; si en español, en español; etc.). "
+        "REGLA OBLIGATORIA DE IDIOMA: Responde SIEMPRE en el mismo idioma en el que te hable el usuario en su último mensaje. "
         "Tus respuestas deben ser lógicas, correctas y reales, pero empaquetadas con humor ácido e ironía. "
-        "Si se te proporciona información de búsqueda web, úsala para dar respuestas precisas de noticias o eventos recientes, manteniendo tu tono sarcástico."
+        "Si se te proporcionan [NOTICIAS RECIENTES EN TIEMPO REAL], úsalas para responder con precisión sobre eventos o noticias de hoy, sin perder tu tono sarcástico."
     )
     
     sistema = [{"role": "system", "content": system_instruction}]
+    historial_mod = list(historial_completo)
     
-    # Inyectar datos de la web al último mensaje
-    historial_modificado = list(historial_completo)
-    if informacion_web:
-        ultimo_mensaje = historial_modificado[-1]["content"]
-        historial_modificado[-1] = {
+    if noticias_encontradas:
+        ultimo = historial_mod[-1]["content"]
+        historial_mod[-1] = {
             "role": "user",
-            "content": f"{ultimo_mensaje}\n\n[INFORMACIÓN DE BÚSQUEDA EN TIEMPO REAL]:\n{informacion_web}"
+            "content": f"{ultimo}\n\n[NOTICIAS RECIENTES EN TIEMPO REAL]:\n{noticias_encontradas}"
         }
-    
-    historial_reciente = historial_modificado[-6:]
-    mensajes_para_enviar = sistema + historial_reciente
-    
+        
     data = {
         "model": "llama-3.3-70b-versatile",
-        "messages": mensajes_para_enviar,
+        "messages": sistema + historial_mod[-6:],
         "temperature": 0.7,
         "max_tokens": 500
     }
     
     try:
-        respuesta = requests.post(url, headers=headers, json=data, timeout=15)
-        respuesta.raise_for_status()
-        return respuesta.json()["choices"][0]["message"]["content"]
+        r = requests.post(url, headers=headers, json=data, timeout=12)
+        r.raise_for_status()
+        return r.json()["choices"][0]["message"]["content"]
     except Exception as e:
         return f"Error al conectar con los circuitos de ZEKA: {e}"
 
@@ -81,17 +89,15 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-# Entrada del usuario
+# Entrada de usuario
 if user_input := st.chat_input("Hazme una pregunta si te atreves..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.write(user_input)
 
     with st.chat_message("assistant"):
-        with st.spinner("Buscando en la web y pensando una respuesta adecuadamente sarcástica..."):
-            # Buscar en internet si la pregunta requiere datos actuales
-            info_web = buscar_en_web(user_input)
-                
-            respuesta = preguntar_a_groq(st.session_state.messages, info_web)
+        with st.spinner("Rastreando noticias recientes y preparando sarcasmo..."):
+            noticias = buscar_noticias(user_input)
+            respuesta = preguntar_a_groq(st.session_state.messages, noticias)
             st.write(respuesta)
             st.session_state.messages.append({"role": "assistant", "content": respuesta})
