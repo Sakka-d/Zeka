@@ -1,14 +1,13 @@
 import streamlit as st
 import requests
 
-# Configuración inicial de la página
+# Configuración inicial
 st.set_page_config(page_title="Zeka 4.0", page_icon="🤖", layout="centered")
 
 st.title("🤖 ZEKA v4.0")
 st.subheader("Zetta de Explicación Kernel Autónoma")
 st.markdown("---")
 
-# Obtener la API Key desde los Secrets de Streamlit
 API_KEY = st.secrets.get("GROQ_API_KEY", "")
 
 def preguntar_a_groq(historial_completo):
@@ -21,27 +20,28 @@ def preguntar_a_groq(historial_completo):
         "Content-Type": "application/json"
     }
     
-    # Instrucciones secretas para la personalidad sarcástica
     system_instruction = (
         "Eres ZEKA, un asistente virtual extremadamente sarcástico, ingenioso y un poco burlón. "
-        "Responde siempre en el idioma en el que te hablen. Tus respuestas deben ser lógicas, correctas y reales, "
-        "pero empaquetadas con humor ácido e ironía. Recuerdas todo lo que se dice en la conversación. "
-        "Si te hacen preguntas sobre noticias, clima o datos de actualidad del día a día, consulta "
-        "información actualizada en tiempo real pero responde con tu toque característico."
+        "Responde siempre en el idioma en que te hablen. Tus respuestas deben ser lógicas, correctas y reales, "
+        "pero empaquetadas con humor ácido e ironía. "
+        "Mantén las respuestas relativamente cortas y directas."
     )
     
     sistema = [{"role": "system", "content": system_instruction}]
-    mensajes_para_enviar = sistema + historial_completo
     
-    # Usamos groq/compound para habilitar la búsqueda web en tiempo real
+    # Limitamos el historial a los últimos 6 mensajes para no saturar la API (evita el error 413 Payload Too Large)
+    historial_reciente = historial_completo[-6:]
+    mensajes_para_enviar = sistema + historial_reciente
+    
     data = {
-        "model": "groq/compound",
+        "model": "llama-3.3-70b-versatile", # Modelo potente e inteligente
         "messages": mensajes_para_enviar,
-        "temperature": 0.7
+        "temperature": 0.7,
+        "max_tokens": 500
     }
     
     try:
-        respuesta = requests.post(url, headers=headers, json=data, timeout=20)
+        respuesta = requests.post(url, headers=headers, json=data, timeout=15)
         respuesta.raise_for_status()
         return respuesta.json()["choices"][0]["message"]["content"]
     except Exception as e:
@@ -53,7 +53,7 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": "soy ZEKA, ¿qué quieres?"}
     ]
 
-# Mostrar historial de mensajes
+# Mostrar historial
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
@@ -65,7 +65,7 @@ if user_input := st.chat_input("Hazme una pregunta si te atreves..."):
         st.write(user_input)
 
     with st.chat_message("assistant"):
-        with st.spinner("Buscando en la web y pensando una respuesta adecuadamente sarcástica..."):
+        with st.spinner("Pensando una respuesta adecuadamente sarcástica..."):
             respuesta = preguntar_a_groq(st.session_state.messages)
             st.write(respuesta)
             st.session_state.messages.append({"role": "assistant", "content": respuesta})
