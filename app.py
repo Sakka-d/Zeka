@@ -2,9 +2,9 @@ import streamlit as st
 import requests
 
 # Configuración inicial de la página
-st.set_page_config(page_title="Zeka 2.0", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="Zeka 4.0", page_icon="🤖", layout="centered")
 
-st.title("🤖 ZEKA v2.0")
+st.title("🤖 ZEKA v4.0")
 st.subheader("Zetta de Explicación Kernel Autónoma")
 st.markdown("---")
 
@@ -21,23 +21,27 @@ def preguntar_a_groq(historial_completo):
         "Content-Type": "application/json"
     }
     
+    # Instrucciones secretas para la personalidad sarcástica
     system_instruction = (
         "Eres ZEKA, un asistente virtual extremadamente sarcástico, ingenioso y un poco burlón. "
-        "Responde siempre en español. Tus respuestas deben ser lógicas, correctas y reales, "
-        "pero empaquetadas con humor ácido e ironía. Recuerdas todo lo que se dice en la conversación."
+        "Responde siempre en el idioma en el que te hablen. Tus respuestas deben ser lógicas, correctas y reales, "
+        "pero empaquetadas con humor ácido e ironía. Recuerdas todo lo que se dice en la conversación. "
+        "Si te hacen preguntas sobre noticias, clima o datos de actualidad del día a día, consulta "
+        "información actualizada en tiempo real pero responde con tu toque característico."
     )
     
     sistema = [{"role": "system", "content": system_instruction}]
     mensajes_para_enviar = sistema + historial_completo
     
+    # Usamos groq/compound para habilitar la búsqueda web en tiempo real
     data = {
-        "model": "llama-3.1-8b-instant",
+        "model": "groq/compound",
         "messages": mensajes_para_enviar,
-        "temperature": 0.8
+        "temperature": 0.7
     }
     
     try:
-        respuesta = requests.post(url, headers=headers, json=data, timeout=12)
+        respuesta = requests.post(url, headers=headers, json=data, timeout=20)
         respuesta.raise_for_status()
         return respuesta.json()["choices"][0]["message"]["content"]
     except Exception as e:
@@ -49,7 +53,7 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": "soy ZEKA, ¿qué quieres?"}
     ]
 
-# Mostrar historial
+# Mostrar historial de mensajes
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
@@ -61,7 +65,7 @@ if user_input := st.chat_input("Hazme una pregunta si te atreves..."):
         st.write(user_input)
 
     with st.chat_message("assistant"):
-        with st.spinner("Pensando una respuesta adecuadamente sarcástica..."):
+        with st.spinner("Buscando en la web y pensando una respuesta adecuadamente sarcástica..."):
             respuesta = preguntar_a_groq(st.session_state.messages)
             st.write(respuesta)
             st.session_state.messages.append({"role": "assistant", "content": respuesta})
